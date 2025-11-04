@@ -20,7 +20,7 @@
 
         <!-- ✅ My Orders (currently checkout) -->
         <li class="nav-item">
-          <a class="nav-link" href="../products/checkout.php">My Orders</a>
+          <a class="nav-link" href="../products/my_orders.php">My Orders</a>
         </li>
 
         <!-- ✅ User Dropdown -->
@@ -29,6 +29,8 @@
             <?= $_SESSION['user_name'] ?? 'User' ?>
           </a>
           <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="../user/profile.php">Profile</a></li>
+            <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item" href="../user/logout.php">Logout</a></li>
           </ul>
         </li>

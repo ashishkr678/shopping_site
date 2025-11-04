@@ -43,19 +43,6 @@ try {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )",
 
-
-        // PRODUCTS
-        "CREATE TABLE IF NOT EXISTS products (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(150) NOT NULL,
-            description TEXT,
-            price DECIMAL(10,2) NOT NULL,
-            stock INT DEFAULT 0,
-            image VARCHAR(255),
-            category VARCHAR(100),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )",
-
         // ORDERS
         "CREATE TABLE IF NOT EXISTS orders (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -77,16 +64,6 @@ try {
             FOREIGN KEY (product_id) REFERENCES products(id)
         )",
 
-        // CART
-        "CREATE TABLE IF NOT EXISTS cart (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NOT NULL,
-            product_id INT NOT NULL,
-            quantity INT DEFAULT 1,
-            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id),
-            FOREIGN KEY (product_id) REFERENCES products(id)
-        )"
     ];
 
     foreach ($tables as $sql) {

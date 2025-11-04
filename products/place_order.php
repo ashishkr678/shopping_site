@@ -13,7 +13,6 @@ if (!isset($_SESSION['user_id'])) {
 <div class="container py-5">
   <h2 class="fw-bold text-center text-primary mb-4">Place Your Order</h2>
 
-  <!-- Address Input -->
   <form id="orderForm" method="POST" action="place_order_action.php" class="shadow p-4 bg-light rounded">
     <div class="mb-3">
       <label for="address" class="form-label fw-semibold">Delivery Address</label>
@@ -39,9 +38,19 @@ if (!isset($_SESSION['user_id'])) {
 <script>
   const summaryDiv = document.getElementById("order-summary");
   const grandTotal = document.getElementById("grand-total");
-  let cart = JSON.parse(localStorage.getItem("cart")) || [];
+  const orderForm = document.getElementById("orderForm");
+
+  function getCart() {
+    try {
+      return JSON.parse(localStorage.getItem("cart")) || [];
+    } catch (e) {
+      return [];
+    }
+  }
 
   function renderSummary() {
+    const cart = getCart();
+
     if (cart.length === 0) {
       summaryDiv.innerHTML = `<p class="text-center text-muted">No items in your cart!</p>`;
       grandTotal.textContent = "";
@@ -50,7 +59,7 @@ if (!isset($_SESSION['user_id'])) {
 
     let total = 0;
     const rows = cart.map(item => {
-      const itemTotal = item.discountedPrice * item.qty;
+      const itemTotal = (item.discountedPrice || 0) * (item.qty || 1);
       total += itemTotal;
       return `
         <tr>
@@ -74,19 +83,45 @@ if (!isset($_SESSION['user_id'])) {
           <tbody>${rows}</tbody>
         </table>
       </div>`;
+
     grandTotal.textContent = `Grand Total: ₹${total.toFixed(2)}`;
   }
 
-  // On form submit, attach cart data
-  document.getElementById("orderForm").addEventListener("submit", function(e) {
+  orderForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    const cart = getCart();
+
+    if (cart.length === 0) {
+      alert("Your cart is empty!");
+      return;
+    }
+
     const hidden = document.createElement("input");
     hidden.type = "hidden";
     hidden.name = "cart_data";
     hidden.value = JSON.stringify(cart);
     this.appendChild(hidden);
 
-    localStorage.removeItem("cart"); // clear cart after order
+    // ✅ Submit the form
+    fetch(this.action, {
+      method: "POST",
+      body: new FormData(this)
+    })
+    .then(res => {
+      if (res.ok) {
+        // ✅ Clear cart from localStorage
+        localStorage.removeItem("cart");
+        // ✅ Redirect to My Orders
+        window.location.href = "my_orders.php?success=1";
+      } else {
+        alert("Failed to place order. Try again.");
+      }
+    })
+    .catch(err => {
+      console.error("Order Error:", err);
+      alert("Something went wrong. Try again later.");
+    });
   });
 
-  renderSummary();
+  document.addEventListener("DOMContentLoaded", renderSummary);
 </script>

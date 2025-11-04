@@ -11,72 +11,91 @@ include('../includes/navbar_user.php');
 
 <?php include('../includes/footer.php'); ?>
 
-<script type="module">
-  import { mens_kurta } from "../assets/products/mens_kurta.js";
+<script>
+  document.addEventListener("DOMContentLoaded", async () => {
+    const productList = document.getElementById('product-list');
 
-  const productList = document.getElementById('product-list');
+    try {
+      const response = await fetch("../api/get_products.php");
+      const products = await response.json();
 
-  mens_kurta.forEach((item, index) => {
-    const card = document.createElement('div');
-    card.className = "col-md-3 col-sm-6 mb-4";
+      if (products.length === 0) {
+        productList.innerHTML = "<p class='text-center text-muted'>No products available.</p>";
+        return;
+      }
 
-    card.innerHTML = `
-      <div class="card product-card h-100 shadow-sm border-0 position-relative">
-        <div class="card-img-wrapper">
-          <img src="${item.imageUrl}" class="card-img-top" alt="${item.title}">
-        </div>
-        <div class="card-body d-flex flex-column text-center">
-          <h6 class="text-muted mb-1">${item.brand}</h6>
-          <h5 class="fw-semibold mb-2">${item.title}</h5>
-          <p class="text-success fw-bold mb-2">₹${item.discountedPrice}
-            <span class="text-decoration-line-through text-muted">₹${item.price}</span>
-            <span class="text-danger">(${item.discountedPercent}% OFF)</span>
-          </p>
-          <div class="d-flex justify-content-center gap-2 mt-auto">
-            <a href="product_details.php?id=${index}" class="btn btn-outline-primary btn-sm w-50 fw-semibold">
-              View
-            </a>
-            <button class="btn btn-primary btn-sm w-50 fw-semibold add-cart-btn" data-index="${index}">
-              Add to Cart
-            </button>
+      products.forEach((item) => {
+        const card = document.createElement('div');
+        card.className = "col-md-3 col-sm-6 mb-4";
+
+        card.innerHTML = `
+          <div class="card product-card h-100 shadow-sm border-0 position-relative">
+            <div class="card-img-wrapper">
+              <img src="${item.image_url}" class="card-img-top" alt="${item.title}">
+            </div>
+            <div class="card-body d-flex flex-column text-center">
+              <h6 class="text-muted mb-1">${item.brand}</h6>
+              <h5 class="fw-semibold mb-2">${item.title}</h5>
+              <p class="text-success fw-bold mb-2">
+                ₹${item.discounted_price}
+                <span class="text-decoration-line-through text-muted">₹${item.price}</span>
+                <span class="text-danger">(${item.discount_percent}% OFF)</span>
+              </p>
+              <div class="d-flex justify-content-center gap-2 mt-auto">
+                <a href="product_details.php?id=${item.id}" class="btn btn-outline-primary btn-sm w-50 fw-semibold">
+                  View
+                </a>
+                <button class="btn btn-primary btn-sm w-50 fw-semibold add-cart-btn" data-id="${item.id}">
+                  Add to Cart
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-    `;
-    productList.appendChild(card);
+        `;
+
+        productList.appendChild(card);
+      });
+    } catch (error) {
+      console.error("Error loading products:", error);
+      productList.innerHTML = "<p class='text-center text-danger'>Failed to load products.</p>";
+    }
   });
 
-  // ✅ Add to Cart functionality
   document.addEventListener('click', (e) => {
     if (e.target.classList.contains('add-cart-btn')) {
-      e.stopPropagation(); // prevent redirect
-      const index = e.target.dataset.index;
-      const product = mens_kurta[index];
+      e.stopPropagation();
+      const id = e.target.dataset.id;
+      const productCard = e.target.closest('.product-card');
+
+      const product = {
+        id,
+        title: productCard.querySelector('h5').innerText,
+        brand: productCard.querySelector('h6').innerText,
+        price: productCard.querySelector('.text-success').innerText,
+        imageUrl: productCard.querySelector('img').src,
+        qty: 1
+      };
+
       const cart = JSON.parse(localStorage.getItem("cart")) || [];
-
-      // Add default size (if available)
-      const defaultSize = product.sizes?.[0]?.name || "Free Size";
-
-      // Check if already exists
-      const existing = cart.find(i => i.title === product.title && i.selectedSize === defaultSize);
+      const existing = cart.find(p => p.id == id);
       if (existing) existing.qty += 1;
-      else cart.push({ ...product, selectedSize: defaultSize, qty: 1 });
+      else cart.push(product);
 
       localStorage.setItem("cart", JSON.stringify(cart));
       showToast(`${product.title} added to cart 🛒`);
     }
   });
 
-  // ✅ Toast Notification Function
   function showToast(msg) {
     const toast = document.createElement('div');
     toast.className = "toast-msg position-fixed top-0 end-0 m-3 bg-success text-white px-3 py-2 rounded shadow";
     toast.style.zIndex = "1055";
     toast.innerHTML = msg;
     document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 500);
+    setTimeout(() => toast.remove(), 2000);
   }
 </script>
+
 
 <style>
   .product-card {

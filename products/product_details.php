@@ -9,7 +9,7 @@ include('../includes/navbar_user.php');
 <?php include('../includes/footer.php'); ?>
 
 <script type="module">
-  import { mens_kurta } from "../assets/products/mens_kurta.js";
+  import { mens_kurta } from "../assets/mens_kurta.js";
 
   const params = new URLSearchParams(window.location.search);
   const id = params.get('id');

@@ -42,17 +42,6 @@ include('../config/db_connect.php');
       </div>
       </a>
     </div>
-
-    <div class="col-md-4">
-      <div class="card shadow-sm p-3 border-0">
-        <h5 class="fw-semibold text-secondary">Total Products</h5>
-        <?php
-        $res = $conn->query("SELECT COUNT(*) AS count FROM products");
-        $count = $res->fetch_assoc()['count'] ?? 0;
-        ?>
-        <h3 class="fw-bold text-danger"><?= $count ?></h3>
-      </div>
-    </div>
   </div>
 </div>
 

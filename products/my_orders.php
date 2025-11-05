@@ -1,161 +1,88 @@
 <?php
 session_start();
-include('../config/db_connect.php');
 include('../includes/header.php');
 include('../includes/navbar_user.php');
-
-if (!isset($_SESSION['user_id'])) {
-  echo "<script>window.location.href='../login.php';</script>";
-  exit;
-}
-
-$user_id = $_SESSION['user_id'];
-
-// Fetch user's orders & items
-$query = "
-    SELECT o.id AS order_id, o.total_amount, o.status, o.created_at, 
-           oi.product_id, oi.product_title, oi.quantity, oi.price
-    FROM orders o
-    JOIN order_items oi ON o.id = oi.order_id
-    WHERE o.user_id = ?
-    ORDER BY o.created_at DESC
-";
-$stmt = $conn->prepare($query);
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$result = $stmt->get_result();
-
-$orders = [];
-while ($row = $result->fetch_assoc()) {
-    $order_id = $row['order_id'];
-    if (!isset($orders[$order_id])) {
-        $orders[$order_id] = [
-            'order_id' => $row['order_id'],
-            'total_amount' => $row['total_amount'],
-            'status' => $row['status'],
-            'created_at' => $row['created_at'],
-            'items' => []
-        ];
-    }
-    $orders[$order_id]['items'][] = [
-        'product_id' => $row['product_id'],
-        'product_title' => $row['product_title'],
-        'quantity' => $row['quantity'],
-        'price' => $row['price']
-    ];
-}
 ?>
 
 <div class="container py-5">
-  <h2 class="mb-4 fw-bold text-primary">My Orders</h2>
-  <div id="ordersContainer"></div>
+  <h2 class="fw-bold text-center text-primary mb-4">My Orders</h2>
+  <div id="orders-container"></div>
 </div>
 
 <?php include('../includes/footer.php'); ?>
 
-<script type="module">
-  import { mens_kurta } from "../assets/mens_kurta.js";
+<script>
+document.addEventListener("DOMContentLoaded", loadOrders);
 
-  const orders = <?php echo json_encode(array_values($orders)); ?>;
-  const container = document.getElementById("ordersContainer");
+async function loadOrders() {
+  const container = document.getElementById("orders-container");
+  try {
+    const res = await fetch("../api/get_my_orders.php");
+    const orders = await res.json();
 
-  if (orders.length === 0) {
-    container.innerHTML = `<p class="text-center text-muted">You have no orders yet.</p>`;
-  } else {
-    orders.forEach(order => {
-      let itemsHTML = "";
+    if (orders.length === 0) {
+      container.innerHTML = `<h5 class='text-center text-muted'>No orders found.</h5>`;
+      return;
+    }
 
-      order.items.forEach(item => {
-        // Find matching product in JS file
-        const product = mens_kurta.find(p => p.id == item.product_id);
+    // Group orders
+    const grouped = {};
+    orders.forEach(o => {
+      if (!grouped[o.order_id]) grouped[o.order_id] = { ...o, items: [] };
+      grouped[o.order_id].items.push(o);
+    });
 
-        // ✅ FIX: Correct image property
-        const imageUrl = product ? product.imageUrl : "../assets/placeholder.png";
-        const title = product ? product.title : item.product_title;
-
-        itemsHTML += `
-          <tr>
-            <td><img src="${imageUrl}" alt="${title}" width="60" height="60" style="object-fit: cover; border-radius:6px;"></td>
-            <td>${title}</td>
-            <td>${item.quantity}</td>
-            <td>₹${parseFloat(item.price).toFixed(2)}</td>
-          </tr>
-        `;
-      });
-
-      // ✅ Allow cancel for everything except Delivered
-      const lowerStatus = order.status.toLowerCase();
-      const cancelBtn = lowerStatus !== "delivered"
-        ? `<button class="btn btn-danger btn-sm mt-2 cancel-order" data-id="${order.order_id}">Cancel Order</button>`
-        : "";
-
-      container.innerHTML += `
-        <div class="card mb-4 shadow-sm" id="order-${order.order_id}">
-          <div class="card-body">
-            <h5 class="card-title">Order #${order.order_id}</h5>
-            <p><strong>Status:</strong> 
-              <span class="badge status-badge bg-${
-                order.status === 'Pending' ? 'warning text-dark' :
-                order.status === 'Cancelled' ? 'danger' :
-                order.status === 'Delivered' ? 'success' : 'secondary'
-              }">${order.status}</span>
-            </p>
-            <p><strong>Date:</strong> ${order.created_at}</p>
-            <p><strong>Total:</strong> ₹${parseFloat(order.total_amount).toFixed(2)}</p>
-
-            <div class="table-responsive">
-              <table class="table table-striped align-middle">
-                <thead class="table-light">
-                  <tr>
-                    <th>Image</th>
-                    <th>Product</th>
-                    <th>Qty</th>
-                    <th>Price</th>
-                  </tr>
-                </thead>
-                <tbody>${itemsHTML}</tbody>
-              </table>
-            </div>
-            ${cancelBtn}
+    container.innerHTML = Object.values(grouped).map(order => {
+      const itemsHTML = order.items.map(item => `
+        <div class="d-flex align-items-center mb-3 border-bottom pb-2">
+          <img src="${item.image_url}" width="80" class="rounded shadow-sm me-3">
+          <div>
+            <h6 class="fw-bold mb-1">${item.title}</h6>
+            <p class="text-muted mb-0">Qty: ${item.quantity}</p>
+            <p class="fw-semibold text-success mb-0">₹${item.price}</p>
           </div>
         </div>
-      `;
-    });
+      `).join('');
+
+      const cancelBtn =
+        order.status === 'DELIVERED' ? `<button class="btn btn-secondary btn-sm" disabled>Delivered</button>` :
+        order.status === 'CANCELLED' ? `<button class="btn btn-danger btn-sm" disabled>Cancelled</button>` :
+        `<button class="btn btn-outline-danger btn-sm" onclick="cancelOrder(${order.order_id})">Cancel Order</button>`;
+
+      return `
+        <div class="card shadow-sm mb-4">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="fw-bold text-primary mb-0">Order #${order.order_id}</h5>
+              <span class="badge bg-${order.status === 'DELIVERED' ? 'success' : order.status === 'CANCELLED' ? 'danger' : 'warning'}">${order.status}</span>
+            </div>
+            ${itemsHTML}
+            <div class="d-flex justify-content-between mt-3">
+              <h6 class="fw-bold text-success">Total: ₹${order.total_amount}</h6>
+              ${cancelBtn}
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (err) {
+    console.error("Error loading orders:", err);
   }
+}
 
-  // ✅ Cancel order live update
-  document.addEventListener("click", async (e) => {
-    if (e.target.classList.contains("cancel-order")) {
-      const button = e.target;
-      const orderId = button.getAttribute("data-id");
-
-      if (confirm("Are you sure you want to cancel this order?")) {
-        button.disabled = true;
-        button.textContent = "Cancelling...";
-
-        const res = await fetch("../products/cancel_order.php", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ order_id: orderId })
-        });
-
-        const data = await res.json();
-
-        if (data.success) {
-          const orderCard = document.getElementById(`order-${orderId}`);
-          const badge = orderCard.querySelector(".status-badge");
-
-          badge.className = "badge status-badge bg-danger";
-          badge.textContent = "Cancelled";
-
-          button.remove();
-          alert("Order cancelled successfully!");
-        } else {
-          button.disabled = false;
-          button.textContent = "Cancel Order";
-          alert(data.message || "Failed to cancel order.");
-        }
-      }
-    }
+async function cancelOrder(orderId) {
+  if (!confirm("Cancel this order?")) return;
+  const res = await fetch("../api/cancel_order.php", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ order_id: orderId })
   });
+  const data = await res.json();
+  alert(data.message);
+  loadOrders();
+}
 </script>
+
+<style>
+.card { border-radius: 10px; }
+.badge { font-size: 0.9rem; padding: 0.5em 0.8em; }
+</style>

@@ -2,7 +2,6 @@
 session_start();
 include('../includes/header.php');
 include('../includes/navbar_user.php');
-include('../config/db_connect.php');
 
 if (!isset($_SESSION['user_id'])) {
   header("Location: ../user/login.php");
@@ -36,38 +35,33 @@ if (!isset($_SESSION['user_id'])) {
 <?php include('../includes/footer.php'); ?>
 
 <script>
+document.addEventListener("DOMContentLoaded", loadCart);
+
+async function loadCart() {
   const summaryDiv = document.getElementById("order-summary");
   const grandTotal = document.getElementById("grand-total");
-  const orderForm = document.getElementById("orderForm");
 
-  function getCart() {
-    try {
-      return JSON.parse(localStorage.getItem("cart")) || [];
-    } catch (e) {
-      return [];
-    }
-  }
+  try {
+    const res = await fetch("../api/get_cart.php");
+    const cart = await res.json();
 
-  function renderSummary() {
-    const cart = getCart();
-
-    if (cart.length === 0) {
-      summaryDiv.innerHTML = `<p class="text-center text-muted">No items in your cart!</p>`;
+    if (!cart.length) {
+      summaryDiv.innerHTML = `<p class="text-center text-muted">Your cart is empty!</p>`;
       grandTotal.textContent = "";
       return;
     }
 
     let total = 0;
     const rows = cart.map(item => {
-      const itemTotal = (item.discountedPrice || 0) * (item.qty || 1);
+      const itemTotal = item.discounted_price * item.quantity;
       total += itemTotal;
       return `
         <tr>
-          <td><img src="${item.imageUrl}" width="70" class="rounded shadow-sm"></td>
+          <td><img src="${item.image_url}" width="70" class="rounded shadow-sm"></td>
           <td>${item.title}</td>
-          <td>${item.selectedSize || "Free Size"}</td>
-          <td>₹${item.discountedPrice}</td>
-          <td>${item.qty}</td>
+          <td>${item.selected_size || "Free Size"}</td>
+          <td>₹${item.discounted_price}</td>
+          <td>${item.quantity}</td>
           <td>₹${itemTotal}</td>
         </tr>`;
     }).join("");
@@ -85,43 +79,22 @@ if (!isset($_SESSION['user_id'])) {
       </div>`;
 
     grandTotal.textContent = `Grand Total: ₹${total.toFixed(2)}`;
+  } catch (err) {
+    console.error("Error loading cart:", err);
+    summaryDiv.innerHTML = `<p class="text-center text-danger">Failed to load cart!</p>`;
   }
+}
 
-  orderForm.addEventListener("submit", function (e) {
-    e.preventDefault();
-    const cart = getCart();
+document.getElementById("orderForm").addEventListener("submit", async function(e) {
+  e.preventDefault();
 
-    if (cart.length === 0) {
-      alert("Your cart is empty!");
-      return;
-    }
+  const formData = new FormData(this);
 
-    const hidden = document.createElement("input");
-    hidden.type = "hidden";
-    hidden.name = "cart_data";
-    hidden.value = JSON.stringify(cart);
-    this.appendChild(hidden);
-
-    // ✅ Submit the form
-    fetch(this.action, {
-      method: "POST",
-      body: new FormData(this)
-    })
-    .then(res => {
-      if (res.ok) {
-        // ✅ Clear cart from localStorage
-        localStorage.removeItem("cart");
-        // ✅ Redirect to My Orders
-        window.location.href = "my_orders.php?success=1";
-      } else {
-        alert("Failed to place order. Try again.");
-      }
-    })
-    .catch(err => {
-      console.error("Order Error:", err);
-      alert("Something went wrong. Try again later.");
-    });
-  });
-
-  document.addEventListener("DOMContentLoaded", renderSummary);
+  const res = await fetch(this.action, { method: "POST", body: formData });
+  if (res.ok) {
+    window.location.href = "my_orders.php?success=1";
+  } else {
+    alert("❌ Failed to place order. Try again later.");
+  }
+});
 </script>
